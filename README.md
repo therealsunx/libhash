@@ -1,4 +1,7 @@
 # Lib-Hash
+
+![img](logo.png)
+
 **Lib-Hash** is a light-weight C-library for hashmap. It can be used to store any
 primitive or user-defined datas. It provides very easy and intuitive API for creating,
 deleting, reading, writing and iterating through the elements in hash-table/map.
