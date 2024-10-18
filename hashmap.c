@@ -25,9 +25,9 @@ hashmap_t* hashmap_create(void){
   hashmap_t* nmap = malloc(sizeof(*nmap));
   if(!nmap) return NULL;
 
-  nmap->_size = 0;
-  nmap->_capacity = DEF_MAP_CAPACITY;
-  nmap->entries = calloc(nmap->_capacity, sizeof(hpair_t));
+  nmap->__size__ = 0;
+  nmap->__capacity__ = DEF_MAP_CAPACITY;
+  nmap->entries = calloc(nmap->__capacity__, sizeof(hpair_t));
   if(!nmap->entries) {
     free(nmap);
     return NULL;
@@ -38,60 +38,65 @@ hashmap_t* hashmap_create(void){
 void hashmap_destroy(hashmap_t* table){
   assert(table != NULL);
 
-  for(size_t i=0; i < table->_capacity; i++){
+  for(size_t i=0; i < table->__capacity__; i++){
     free(table->entries[i].key);
   }
   free(table->entries);
   free(table);
 }
 
-void _expand_hashmap(hashmap_t* table){
+uint32_t _expand_hashmap(hashmap_t* table){
   assert(table != NULL);
 
-  size_t ncap = table->_capacity<<1;
+  size_t ncap = table->__capacity__<<1;
   hpair_t* entries = calloc(ncap, sizeof(*entries));
+  if(!entries) return 0;
 
-  for(uint32_t i=0, index; i<table->_capacity; i++){
+  for(uint32_t i=0, index; i<table->__capacity__; i++){
     hpair_t _ent = table->entries[i];
     if(!_ent.key) continue;
 
-    index = _ent._hash & (ncap-1);
+    index = _ent.__hash__ & (ncap-1);
     while(entries[index].key != NULL){
       index++;
       if(index == ncap) index=0;
     }
     entries[index].key = _ent.key;
     entries[index].value = _ent.value;
-    entries[index]._hash = _ent._hash;
+    entries[index].__hash__ = _ent.__hash__;
   }
   free(table->entries);
-  table->_capacity = ncap;
+  table->__capacity__ = ncap;
   table->entries = entries;
+  return 1;
 }
 
-size_t hashmap_getSize(hashmap_t *map){
+size_t hashmap_getCount(hashmap_t *map){
   assert(map != NULL);
-  return map->_size;
+  return map->__size__;
 }
 size_t hashmap_getCapacity(hashmap_t *map){
   assert(map != NULL);
-  return map->_capacity;
+  return map->__capacity__;
 }
 
 void hashmap_pop(hashmap_t* table, char* key){
   assert(table != NULL && key != NULL);
   hash_t hash = FNV_1a_hash(key, strlen(key));
 
-  uint32_t index = hash & (table->_capacity-1);
-  for(uint32_t i=0; i<(uint32_t)table->_capacity; i++){
+  uint32_t index = hash & (table->__capacity__-1);
+  for(uint32_t i=0; i<(uint32_t)table->__capacity__; i++){
     hpair_t* entry = &table->entries[index];
-    if(!entry->key && !entry->_hash) break;
+    if(!entry->key && !entry->__hash__) break;
 
-    if(entry->key && hash == entry->_hash){
+    if(entry->key && hash == entry->__hash__){
       entry->value = NULL;
       free(entry->key);
+      entry->key = NULL;
+      table->__size__--;
+      return;
     }
-    if(++index == table->_capacity) index = 0;
+    if(++index == table->__capacity__) index = 0;
   }
 }
 
@@ -99,57 +104,59 @@ void* hashmap_get(hashmap_t* table, char* key){
   assert(table != NULL && key != NULL);
   hash_t hash = FNV_1a_hash(key, strlen(key));
 
-  uint32_t index = hash & (table->_capacity-1);
-  for(uint32_t i=0; i<(uint32_t)table->_capacity; i++, index++){
+  uint32_t index = hash & (table->__capacity__-1);
+  for(uint32_t i=0; i<(uint32_t)table->__capacity__; i++, index++){
     hpair_t entry =table->entries[index];
 
-    if(!entry.key && !entry._hash) return NULL; // key doesnot exists
-    if(entry.key && hash == entry._hash){
+    if(!entry.key && !entry.__hash__) return NULL; // key doesnot exists
+    if(entry.key && hash == entry.__hash__){
       return entry.value;
     }
-    if(index == table->_capacity) index = 0;
+    if(index == table->__capacity__) index = 0;
   }
 
   return NULL;
 }
 
-void hashmap_set(hashmap_t* table, char* key, void* value){
+uint32_t hashmap_set(hashmap_t* table, char* key, void* value){
   assert(table != NULL && key != NULL);
 
-  if(table->_size+1 == table->_capacity){
-    _expand_hashmap(table);
+  if(table->__size__ >= (table->__capacity__>>1)){
+    if(!_expand_hashmap(table)) return 0;
   }
 
   hash_t hash = FNV_1a_hash(key, strlen(key));
-  uint32_t index = hash & (table->_capacity-1); // capacity must be power of 2
+  uint32_t index = hash & (table->__capacity__-1); // capacity must be power of 2
   while(table->entries[index].key != NULL){
     index++;
-    if(index == table->_capacity) index=0;
+    if(index == table->__capacity__) index=0;
   }
   table->entries[index].key = strdup(key);
   table->entries[index].value = value;
-  table->entries[index]._hash = hash;
-  table->_size++;
+  table->entries[index].__hash__ = hash;
+  table->__size__++;
+  return 1;
 }
 
 hm_iterator_t hashmap_iterator(hashmap_t* map){
   assert(map != NULL);
   hm_iterator_t iter;
-  iter._map = map;
-  iter._index = 0;
+  iter.__map__ = map;
+  iter.__index__ = 0;
   return iter;
 }
 
 uint32_t hashmap_next(hm_iterator_t* iter){
   assert(iter != NULL);
-  while(iter->_index < iter->_map->_capacity){
-    if(iter->_map->entries[iter->_index].key){
-      iter->key = iter->_map->entries[iter->_index].key;
-      iter->value = iter->_map->entries[iter->_index].value;
-      iter->_index++;
+  hpair_t _entry;
+  while(iter->__index__ < iter->__map__->__capacity__){
+    if((_entry = iter->__map__->entries[iter->__index__]).key){
+      iter->key = _entry.key;
+      iter->value = _entry.value;
+      iter->__index__++;
       return 1;
     }
-    iter->_index++;
+    iter->__index__++;
   }
   return 0;
 }

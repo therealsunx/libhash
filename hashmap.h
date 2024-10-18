@@ -21,34 +21,45 @@ typedef uint32_t hash_t;
 typedef struct {
   char* key;
   void* value;
-  // cache in the hash for quick lookup in probing
-  hash_t _hash;
+  hash_t __hash__;
 } hpair_t;
 
 typedef struct {
   hpair_t* entries;
-  size_t _capacity, _size;
+  size_t __capacity__, __size__;
 } hashmap_t;
 
-/*Creates  a fucking hashmap*/
+/*Creates  an empty hashmap*/
 hashmap_t* hashmap_create(void);
+/*Frees the hashmap*/
 void hashmap_destroy(hashmap_t* map);
 
-size_t hashmap_getSize(hashmap_t *map);
+/*Returns the number of items in the hashmap*/
+size_t hashmap_getCount(hashmap_t *map);
+/*Returns the current capacity of the hashmap
+ * *Note: hashmap expands automatically* */
 size_t hashmap_getCapacity(hashmap_t *map);
 
+/* Returns the value associated to the 'key'.
+ * *Returns NULL if key does not exists* */
 void* hashmap_get(hashmap_t* map, char* key);
-void hashmap_set(hashmap_t* map, char* key, void* value);
+
+/* Adds an entry with provided key-value pair.
+ * Returns 1 if successfull, 0 if failed*/
+uint32_t hashmap_set(hashmap_t* map, char* key, void* value);
+/* Removes an entry from the hashmap */
 void hashmap_pop(hashmap_t* map, char* key);
 
 typedef struct {
   char* key;
   void* value;
-
-  hashmap_t* _map;
-  size_t _index;
+  hashmap_t* __map__;
+  size_t __index__;
 } hm_iterator_t;
 
+/*Returns an iterator for the hashmap,
+ * which can be iterated with hashmap_next() function */
 hm_iterator_t hashmap_iterator(hashmap_t* map);
+/* Iterates over to the next entry in the hashmap */
 uint32_t hashmap_next(hm_iterator_t* iterator);
 
